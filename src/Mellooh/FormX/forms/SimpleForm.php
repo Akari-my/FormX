@@ -8,13 +8,14 @@ use pocketmine\player\Player;
 
 class SimpleForm implements Form {
 
-    private Closure $callback;
+    private Closure $mainCallback;
     private string $title = "";
     private string $content = "";
     private array $buttons = [];
+    private array $buttonCallbacks = [];
 
-    public function __construct(Closure $callback) {
-        $this->callback = $callback;
+    public function __construct(?Closure $mainCallback = null) {
+        $this->mainCallback = $mainCallback ?? function() {};
     }
 
     public function setTitle(string $title): void {
@@ -33,13 +34,29 @@ class SimpleForm implements Form {
         $this->buttons[] = $button;
     }
 
+    public function addActionButton(string $text, Closure $callback, ?string $imageType = null, ?string $imagePath = null): void {
+        $button = ['text' => $text];
+        if ($imageType !== null && $imagePath !== null) {
+            $button['image'] = ['type' => $imageType, 'data' => $imagePath];
+        }
+
+        $index = count($this->buttons);
+        $this->buttons[] = $button;
+        $this->buttonCallbacks[$index] = $callback;
+    }
+
     public function sendTo(Player $player): void {
         $player->sendForm($this);
     }
 
     public function handleResponse(Player $player, $data): void {
         if ($data === null) return;
-        ($this->callback)($player, $data);
+
+        if (isset($this->buttonCallbacks[$data])) {
+            ($this->buttonCallbacks[$data])($player);
+        } else {
+            ($this->mainCallback)($player, $data);
+        }
     }
 
     public function jsonSerialize(): mixed {
